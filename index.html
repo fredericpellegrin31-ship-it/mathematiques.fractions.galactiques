@@ -150,14 +150,15 @@
             100% { transform: translateY(800px) rotate(720deg); opacity: 0; }
         }
 
-        /* Classes de feedback pour les boutons */
         .btn-correct {
-            border: 4px solid #10b981 !important;
+            border: 6px solid #10b981 !important;
             background-color: #ecfdf5 !important;
+            box-shadow: 0 0 15px rgba(16, 185, 129, 0.4);
         }
         .btn-incorrect {
-            border: 4px solid #ef4444 !important;
+            border: 6px solid #ef4444 !important;
             background-color: #fef2f2 !important;
+            box-shadow: 0 0 15px rgba(239, 68, 68, 0.4);
         }
     </style>
 </head>
@@ -166,7 +167,7 @@
         <div class="star-layer"></div>
     </div>
 
-    <div id="app" class="w-full max-w-md game-shell overflow-hidden min-h-[650px] h-[90vh] flex flex-col relative">
+    <div id="app" class="w-full max-w-md game-shell overflow-hidden min-h-[600px] h-[85vh] flex flex-col relative">
         <header class="bg-black/40 text-white p-4 text-center border-b border-white/10 z-20">
             <h1 class="text-2xl tracking-widest uppercase italic">Fractions Galactiques</h1>
         </header>
@@ -175,7 +176,6 @@
             <div id="explosion" class="explosion-particle"></div>
             <div id="laser-bolt" class="laser-projectile"></div>
 
-            <!-- Vaisseau spatial -->
             <div id="spaceship" class="absolute left-6 top-1/2 -translate-y-1/2 ship-float z-10 w-20 h-16">
                 <svg viewBox="0 0 100 80" class="w-full h-full drop-shadow-2xl">
                     <path d="M10,40 L0,35 L5,40 L0,45 Z" fill="#f97316" class="engine-glow" />
@@ -187,12 +187,10 @@
                 </svg>
             </div>
 
-            <!-- Bulle Question -->
             <div id="question-bubble" class="hidden absolute left-28 top-1/2 -translate-y-1/2 z-20 bg-indigo-600 px-4 py-2 rounded-xl border-2 border-white shadow-xl flex flex-col items-center min-w-[60px]">
                 <div id="target-fraction" class="fraction-display"></div>
             </div>
 
-            <!-- Astéroïde visuel -->
             <div id="asteroid-container" class="absolute right-[-120px] top-1/2 -translate-y-1/2 transition-all z-10 w-24 h-24 flex items-center justify-center">
                  <svg id="asteroid-svg" viewBox="0 0 100 100" class="w-20 h-20 drop-shadow-lg">
                     <path d="M30,10 Q50,0 70,10 Q95,25 90,50 Q95,75 70,90 Q50,100 25,90 Q0,75 5,50 Q0,25 30,10" fill="#4b5563" stroke="#1f2937" stroke-width="2" />
@@ -208,7 +206,7 @@
         <main class="flex-grow flex flex-col p-6 z-20 overflow-hidden" id="ui-container"></main>
 
         <footer class="p-3 text-center text-white/30 text-[10px] tracking-widest uppercase">
-            Protocoles Mathématiques // Mission CE1-CM2
+            Protocoles Mathématiques // Système Orbital
         </footer>
     </div>
 
@@ -221,12 +219,12 @@
             currentQuestion: null,
             isAnswering: false,
             selectedIndex: null,
-            message: null,
             timerTimeout: null,
             currentType: 'pie' 
         };
 
-        const denominators = [2, 3, 4, 5, 6];
+        // Limitation aux sixièmes maximum
+        const denominators = [2, 3, 4, 5, 6]; 
 
         let audioCtx;
         function initAudio() {
@@ -269,7 +267,7 @@
         function createConfetti() {
             const container = document.getElementById('confetti-container');
             const colors = ['#f44336', '#e91e63', '#9c27b0', '#673ab7', '#3f51b5', '#2196f3', '#03a9f4', '#00bcd4', '#009688', '#4caf50', '#8bc34a', '#cddc39', '#ffeb3b', '#ffc107', '#ff9800', '#ff5722'];
-            for (let i = 0; i < 100; i++) {
+            for (let i = 0; i < 80; i++) {
                 const confetti = document.createElement('div');
                 confetti.className = 'confetti';
                 confetti.style.left = Math.random() * 100 + 'vw';
@@ -379,30 +377,58 @@
             }, 600);
         }
 
+        // Fonction pour générer une fraction équivalente "piège" limitée à 6
+        function getEquivalent(num, den) {
+            const multipliers = [2, 3];
+            for (let m of multipliers.sort(() => Math.random() - 0.5)) {
+                if (den * m <= 6) {
+                    return { num: num * m, den: den * m };
+                }
+            }
+            return { num, den };
+        }
+
         function nextQuestion() {
             if (state.questionIndex >= state.totalQuestions) { setView('results'); return; }
             state.questionIndex++;
             state.isAnswering = false;
             state.selectedIndex = null;
-            state.message = null;
             state.currentType = state.currentType === 'pie' ? 'bar' : 'pie';
 
-            const den = denominators[Math.floor(Math.random() * denominators.length)];
-            const num = Math.floor(Math.random() * (den - 1)) + 1;
-            let options = [{ num, den }];
+            const baseDen = denominators[Math.floor(Math.random() * denominators.length)];
+            const baseNum = Math.floor(Math.random() * (baseDen - 1)) + 1;
+            
+            // On décide si on affiche un piège d'équivalence (50% de chance)
+            const isTrick = Math.random() > 0.5;
+            let visualCorrect = { num: baseNum, den: baseDen };
+            
+            if (isTrick) {
+                const equiv = getEquivalent(baseNum, baseDen);
+                visualCorrect = equiv;
+            }
+
+            let options = [visualCorrect];
             while(options.length < 4) {
                 const d = denominators[Math.floor(Math.random() * denominators.length)];
                 const n = Math.floor(Math.random() * (d - 1)) + 1;
-                if (!options.some(o => (o.num/o.den) === (n/d))) options.push({ num: n, den: d });
+                if (!options.some(o => (o.num/o.den) === (n/d))) {
+                    options.push({ num: n, den: d });
+                }
             }
-            state.currentQuestion = { num, den, options: options.sort(() => Math.random() - 0.5) };
+            
+            state.currentQuestion = { 
+                targetNum: baseNum, 
+                targetDen: baseDen, 
+                targetValue: baseNum / baseDen,
+                options: options.sort(() => Math.random() - 0.5) 
+            };
 
             document.getElementById('question-bubble').classList.remove('hidden');
-            document.getElementById('target-fraction').innerHTML = `<span>${num}</span><div class="fraction-line"></div><span>${den}</span>`;
+            document.getElementById('target-fraction').innerHTML = `<span>${baseNum}</span><div class="fraction-line"></div><span>${baseDen}</span>`;
             
             resetAnimation();
             render();
-            speakFraction(num, den);
+            speakFraction(baseNum, baseDen);
 
             if(state.timerTimeout) clearTimeout(state.timerTimeout);
             state.timerTimeout = setTimeout(() => { if(!state.isAnswering) handleAnswer(-1); }, 12000);
@@ -415,25 +441,22 @@
             if(state.timerTimeout) clearTimeout(state.timerTimeout);
             
             const selected = state.currentQuestion.options[idx];
-            const isCorrect = selected && selected.num === state.currentQuestion.num && selected.den === state.currentQuestion.den;
+            const isCorrect = selected && Math.abs((selected.num / selected.den) - state.currentQuestion.targetValue) < 0.001;
 
             if (isCorrect) {
                 state.score++;
-                state.message = { text: "CIBLE DÉTRUITE ! ⚡", type: "success" };
                 triggerLaser();
                 render();
-                setTimeout(nextQuestion, 2000);
+                setTimeout(nextQuestion, 1500);
             } else {
-                state.message = { text: "OUPS ! ÉCHEC DU TIR 💥", type: "error" };
                 render();
-                
                 const checkCol = setInterval(() => {
                     const astRect = document.getElementById('asteroid-container').getBoundingClientRect();
                     const shipRect = document.getElementById('spaceship').getBoundingClientRect();
                     if (astRect.left <= shipRect.right) {
                         clearInterval(checkCol);
                         triggerCollision();
-                        setTimeout(nextQuestion, 3000);
+                        setTimeout(nextQuestion, 2000);
                     }
                 }, 50);
             }
@@ -448,8 +471,9 @@
                 ui.innerHTML = `
                     <div class="flex flex-col gap-8 items-center justify-center h-full text-center">
                         <div>
-                            <h2 class="text-indigo-400 text-xl uppercase mb-2">Prêt pour le décollage ?</h2>
-                            <p class="text-white/60 text-sm px-4">Associe les fractions à leurs formes pour pulvériser les astéroïdes.</p>
+                            <h2 class="text-indigo-400 text-xl uppercase mb-2">Alerte Équivalence !</h2>
+                            <p class="text-white/60 text-sm px-4 italic">Jusqu'aux sixièmes maximum.</p>
+                            <p class="text-white/40 text-xs mt-4 px-4">Certaines formes découpées différemment valent la même chose !</p>
                         </div>
                         <button onclick="initAudio(); startGame();" class="btn-pop w-full bg-indigo-600 hover:bg-indigo-500 text-white font-bold py-5 rounded-2xl text-xl shadow-lg border-b-4 border-indigo-800 uppercase">Commencer</button>
                     </div>
@@ -458,10 +482,10 @@
                 ui.innerHTML = `
                     <div class="flex flex-col h-full">
                         <div class="flex justify-between items-center mb-4">
-                            <span class="text-[10px] text-white/40 uppercase tracking-widest">Zone de tir ${state.questionIndex}/10</span>
+                            <span class="text-[10px] text-white/40 uppercase tracking-widest">Secteur ${state.questionIndex}/10</span>
                             <div class="flex gap-2">
                                 <span class="text-indigo-400 font-bold">Score: ${state.score}</span>
-                                <button onclick="speakFraction(state.currentQuestion.num, state.currentQuestion.den)" class="bg-white/10 p-2 rounded-lg text-white">
+                                <button onclick="speakFraction(state.currentQuestion.targetNum, state.currentQuestion.targetDen)" class="bg-white/10 p-2 rounded-lg text-white">
                                     <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M9.383 3.076A1 1 0 0110 4v12a1 1 0 01-1.707.707L4.586 13H2a1 1 0 01-1-1V8a1 1 0 011-1h2.586l3.707-3.707a1 1 0 011.09-.217z" /></svg>
                                 </button>
                             </div>
@@ -470,11 +494,11 @@
                             ${state.currentQuestion.options.map((opt, idx) => {
                                 let feedbackClass = "";
                                 if (state.isAnswering) {
-                                    const isTarget = opt.num === state.currentQuestion.num && opt.den === state.currentQuestion.den;
+                                    const isCorrectOpt = Math.abs((opt.num / opt.den) - state.currentQuestion.targetValue) < 0.001;
                                     if (idx === state.selectedIndex) {
-                                        feedbackClass = isTarget ? "btn-correct" : "btn-incorrect";
-                                    } else if (isTarget) {
-                                        feedbackClass = "btn-correct"; // Affiche la bonne réponse si erreur
+                                        feedbackClass = isCorrectOpt ? "btn-correct" : "btn-incorrect";
+                                    } else if (isCorrectOpt) {
+                                        feedbackClass = "btn-correct";
                                     }
                                 }
                                 
@@ -487,19 +511,6 @@
                                 `;
                             }).join('')}
                         </div>
-                        ${state.message ? `
-                            <div class="text-center py-2 min-h-[80px]">
-                                <div class="font-bold uppercase tracking-widest mb-1 ${state.message.type === 'success' ? 'text-emerald-400' : 'text-rose-500'}">
-                                    ${state.message.text}
-                                </div>
-                                ${state.message.type === 'error' ? `
-                                    <div class="text-xs text-white/70">La bonne réponse était :</div>
-                                    <div class="flex justify-center mt-1 scale-50 -my-4">
-                                        ${state.currentType === 'pie' ? getPieSVG(state.currentQuestion.num, state.currentQuestion.den, 60, "#10b981") : getBarSVG(state.currentQuestion.num, state.currentQuestion.den, 60, "#10b981")}
-                                    </div>
-                                ` : ''}
-                            </div>
-                        ` : ''}
                     </div>
                 `;
             } else if (state.view === 'results') {
@@ -510,9 +521,7 @@
                 else if (state.score >= 7) stars = 2;
                 else if (state.score >= 1) stars = 1;
 
-                if (state.score === 10) {
-                    createConfetti();
-                }
+                if (state.score === 10) createConfetti();
 
                 ui.innerHTML = `
                     <div class="flex flex-col items-center justify-center h-full gap-4 text-center">
@@ -521,18 +530,17 @@
                             <span class="${stars >= 2 ? 'text-yellow-400' : 'text-gray-600'}">★</span>
                             <span class="${stars >= 3 ? 'text-yellow-400' : 'text-gray-600'}">★</span>
                         </div>
-                        <h2 class="text-2xl font-bold uppercase tracking-widest">Rapport de Mission</h2>
+                        <h2 class="text-2xl font-bold uppercase tracking-widest">Rapport de Vol</h2>
                         <div class="bg-white/5 p-6 rounded-3xl border border-white/10 my-4 w-full">
-                            <p class="text-[10px] uppercase text-white/40 mb-1">Score final</p>
                             <p class="text-5xl font-bold text-indigo-400">${state.score}/10</p>
                             <p class="mt-4 text-sm text-white/60">
-                                ${state.score === 10 ? "MISSION PARFAITE ! Amiral des Fractions !" : 
-                                  state.score >= 7 ? "Excellent travail de navigation !" : 
-                                  state.score >= 5 ? "Pas mal, encore un peu d'entraînement !" : 
-                                  "Retourne à l'académie pour réviser !"}
+                                ${state.score === 10 ? "MAITRE DES FRACTIONS !" : 
+                                  state.score >= 7 ? "Excellent travail de pilote." : 
+                                  state.score >= 5 ? "Pas mal, continue l'entraînement." : 
+                                  "Retourne à l'académie spatiale !"}
                             </p>
                         </div>
-                        <button onclick="setView('home')" class="btn-pop w-full bg-indigo-600 text-white font-bold py-4 rounded-2xl uppercase shadow-lg border-b-4 border-indigo-800">Nouvelle Mission</button>
+                        <button onclick="setView('home')" class="btn-pop w-full bg-indigo-600 text-white font-bold py-4 rounded-2xl uppercase shadow-lg border-b-4 border-indigo-800">Réessayer</button>
                     </div>
                 `;
             }
